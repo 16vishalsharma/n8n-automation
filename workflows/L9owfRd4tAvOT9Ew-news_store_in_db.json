@@ -1,0 +1,76 @@
+{
+  "createdAt": "2026-02-14T17:47:21.758Z",
+  "updatedAt": "2026-02-14T18:09:22.000Z",
+  "id": "L9owfRd4tAvOT9Ew",
+  "name": "news store in db",
+  "active": false,
+  "nodes": [],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "ae629b61-28f5-4b54-9595-6a5cf0b9eac7",
+  "triggerCount": 0,
+  "shared": [
+    {
+      "createdAt": "2026-02-14T17:47:21.764Z",
+      "updatedAt": "2026-02-14T17:47:21.764Z",
+      "role": "workflow:owner",
+      "workflowId": "L9owfRd4tAvOT9Ew",
+      "projectId": "qPQUO9KxJ6Fh2lcP",
+      "project": {
+        "createdAt": "2025-12-04T11:58:50.477Z",
+        "updatedAt": "2025-12-04T11:59:42.283Z",
+        "id": "qPQUO9KxJ6Fh2lcP",
+        "name": "vishal kumar <vishal.kumar@inc42.com>",
+        "type": "personal",
+        "projectRelations": [
+          {
+            "createdAt": "2025-12-04T11:58:50.477Z",
+            "updatedAt": "2025-12-04T11:58:50.477Z",
+            "role": "project:personalOwner",
+            "userId": "397dce9b-0f56-4b48-b26c-8013f2888540",
+            "projectId": "qPQUO9KxJ6Fh2lcP",
+            "user": {
+              "createdAt": "2025-12-04T11:58:50.423Z",
+              "updatedAt": "2025-12-04T12:00:26.000Z",
+              "id": "397dce9b-0f56-4b48-b26c-8013f2888540",
+              "email": "vishal.kumar@inc42.com",
+              "firstName": "vishal",
+              "lastName": "kumar",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-04T12:00:26.398Z",
+                "personalization_survey_n8n_version": "1.64.3",
+                "automationGoalDevops": [
+                  "data-syncing",
+                  "incident-response",
+                  "cloud-infrastructure-orchestration",
+                  "ci-cd"
+                ],
+                "companySize": "<20",
+                "companyType": "saas",
+                "role": "engineering",
+                "reportedSource": "linkedin"
+              },
+              "settings": {
+                "userActivated": false
+              },
+              "role": "global:owner",
+              "disabled": false,
+              "mfaEnabled": false,
+              "isPending": false,
+              "isOwner": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": []
+}

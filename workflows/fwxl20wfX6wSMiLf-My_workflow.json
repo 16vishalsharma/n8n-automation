@@ -1,0 +1,334 @@
+{
+  "createdAt": "2025-12-06T12:04:34.428Z",
+  "updatedAt": "2026-02-14T14:36:19.000Z",
+  "id": "fwxl20wfX6wSMiLf",
+  "name": "My workflow",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "f86aa2eb-3580-4471-9f43-a9f2384b9e16",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        840,
+        320
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Lkl9iNa1LJMElecR",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "9e33776a-65bb-4454-8766-78a1b3be1011",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        360,
+        420
+      ],
+      "webhookId": "a2a6e1c9-e6ed-40c5-ba7d-3dd7f6329aee"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "85e333ca-619c-4f4c-ad19-deb17e431ae7",
+      "name": "OpenAI Chat Model1",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        620
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "Lkl9iNa1LJMElecR",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8",
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1653336468,
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit#gid=1653336468"
+        },
+        "options": {}
+      },
+      "id": "e468a1c4-71fb-43b2-98f4-b0ad7a1cd4a9",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.5,
+      "position": [
+        1580,
+        620
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Tr0eKG5t1j7d44Qc",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "b8ca7288-91e1-4320-ad2a-0df09ecf46bb",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [
+        1380,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "news",
+        "options": {}
+      },
+      "id": "df81099c-54f1-4d6d-80dd-dfec4659ce39",
+      "name": "MongoDB",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        120
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "LxOJfeYcSjHNU1UQ",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "811b18ae-5110-45aa-8b9c-aba4dec2430e",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        820,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c18835a2-cbb9-40fc-a827-578efdea41f6",
+      "name": "AI Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        1180,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "createFromText",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "root",
+          "cachedResultName": "/ (Root folder)"
+        },
+        "options": {}
+      },
+      "id": "5b884c67-d4cd-4843-a933-f774bba5214e",
+      "name": "Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1380,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB": {
+      "main": [
+        [
+          {
+            "node": "Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "383339ae-3fcf-46e7-bf37-dce49b54de8a",
+  "triggerCount": 0,
+  "shared": [
+    {
+      "createdAt": "2025-12-06T12:04:34.436Z",
+      "updatedAt": "2025-12-06T12:04:34.436Z",
+      "role": "workflow:owner",
+      "workflowId": "fwxl20wfX6wSMiLf",
+      "projectId": "qPQUO9KxJ6Fh2lcP",
+      "project": {
+        "createdAt": "2025-12-04T11:58:50.477Z",
+        "updatedAt": "2025-12-04T11:59:42.283Z",
+        "id": "qPQUO9KxJ6Fh2lcP",
+        "name": "vishal kumar <vishal.kumar@inc42.com>",
+        "type": "personal",
+        "projectRelations": [
+          {
+            "createdAt": "2025-12-04T11:58:50.477Z",
+            "updatedAt": "2025-12-04T11:58:50.477Z",
+            "role": "project:personalOwner",
+            "userId": "397dce9b-0f56-4b48-b26c-8013f2888540",
+            "projectId": "qPQUO9KxJ6Fh2lcP",
+            "user": {
+              "createdAt": "2025-12-04T11:58:50.423Z",
+              "updatedAt": "2025-12-04T12:00:26.000Z",
+              "id": "397dce9b-0f56-4b48-b26c-8013f2888540",
+              "email": "vishal.kumar@inc42.com",
+              "firstName": "vishal",
+              "lastName": "kumar",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-04T12:00:26.398Z",
+                "personalization_survey_n8n_version": "1.64.3",
+                "automationGoalDevops": [
+                  "data-syncing",
+                  "incident-response",
+                  "cloud-infrastructure-orchestration",
+                  "ci-cd"
+                ],
+                "companySize": "<20",
+                "companyType": "saas",
+                "role": "engineering",
+                "reportedSource": "linkedin"
+              },
+              "settings": {
+                "userActivated": false
+              },
+              "role": "global:owner",
+              "disabled": false,
+              "mfaEnabled": false,
+              "isPending": false,
+              "isOwner": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": []
+}

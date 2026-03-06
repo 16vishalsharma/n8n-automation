@@ -1,0 +1,1065 @@
+{
+  "createdAt": "2026-02-14T13:18:54.057Z",
+  "updatedAt": "2026-03-05T10:55:02.000Z",
+  "id": "DcpifuCccI0stDAq",
+  "name": "News Scraping",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        340
+      ],
+      "id": "a1b2c3d4-0001-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Define news categories to scrape automatically\nreturn [\n  { json: { topic: 'latest breaking news today' } },\n  { json: { topic: 'gold price news' } },\n  { json: { topic: 'silver price commodity' } },\n  { json: { topic: 'stock market price' } },\n  { json: { topic: 'trending stocks india' } },\n  { json: { topic: 'nifty sensex BSE NSE' } },\n  { json: { topic: 'cryptocurrency bitcoin ethereum' } }\n];"
+      },
+      "name": "Set Categories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        340
+      ],
+      "id": "a1b2c3d4-0002-4000-8000-000000000002"
+    },
+    {
+      "parameters": {
+        "path": "fetch-news",
+        "formTitle": "Fetch News",
+        "formDescription": "Enter a topic to fetch latest news articles",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "topic",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        560
+      ],
+      "id": "2f238230-0d9c-4e9d-844c-177e1b7e9505"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle input from Form Trigger (topic/Topic) or Chat Trigger (chatInput)\nconst input = $json.topic || $json.Topic || $json.chatInput || 'latest news';\nreturn [{ json: { topic: input.toLowerCase().trim() } }];"
+      },
+      "name": "Normalize Topic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        660
+      ],
+      "id": "c0f833e9-6aa0-4320-801d-73e2425f34df"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": [
+            {
+              "name": "x-api-key",
+              "value": "b37fee05b83f4796a1f6871b1e8503ac"
+            }
+          ]
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "q",
+              "value": "={{$json.topic}}"
+            },
+            {
+              "name": "pageSize",
+              "value": "10"
+            },
+            {
+              "name": "sortBy",
+              "value": "publishedAt"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            }
+          ]
+        }
+      },
+      "name": "Fetch NewsAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        540,
+        480
+      ],
+      "id": "77d6566d-e616-4b11-bf14-6ed2a62eab71",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "articles",
+        "options": {}
+      },
+      "name": "Split Articles",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 1,
+      "position": [
+        720,
+        480
+      ],
+      "id": "3b4cf9da-14ab-4e0f-a795-8b86b2740b65",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Google News RSS URLs for each topic\nreturn items.map(item => {\n  const topic = encodeURIComponent(item.json.topic);\n  return {\n    json: {\n      topic: item.json.topic,\n      rssUrl: `https://news.google.com/rss/search?q=${topic}&hl=en-IN&gl=IN&ceid=IN:en`\n    }\n  };\n});"
+      },
+      "name": "Build RSS URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        160
+      ],
+      "id": "a1b2c3d4-0010-4000-8000-000000000010"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.rssUrl}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Fetch Google News RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        160
+      ],
+      "id": "a1b2c3d4-0011-4000-8000-000000000011",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse RSS XML response and extract articles\nconst response = $json.data || (typeof $json === 'string' ? $json : '');\n\nif (!response || typeof response !== 'string') {\n  return [];\n}\n\n// Helper: strip ALL HTML tags and decode entities\nfunction stripHtml(str) {\n  if (!str) return '';\n  return str\n    .replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '')\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n    .replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\")\n    .replace(/&nbsp;/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst articles = [];\nconst itemRegex = /<item>([\\s\\S]*?)<\\/item>/g;\nlet match;\n\nwhile ((match = itemRegex.exec(response)) !== null) {\n  const xml = match[1];\n\n  // Extract raw tag content\n  const getRawTag = (tag) => {\n    const m = xml.match(new RegExp(`<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`));\n    return m ? m[1] : '';\n  };\n\n  const sourceMatch = xml.match(/<source[^>]*>([\\s\\S]*?)<\\/source>/);\n  const sourceName = sourceMatch ? stripHtml(sourceMatch[1]) : 'Google News';\n\n  const rawTitle = stripHtml(getRawTag('title'));\n  const title = rawTitle.replace(new RegExp(`\\\\s*-\\\\s*${sourceName.replace(/[.*+?^${}()|[\\\\]\\\\\\\\]/g, '\\\\\\\\$&')}\\\\s*$`), '') || rawTitle;\n\n  const linkMatch = xml.match(/<link>\\s*([\\s\\S]*?)\\s*<\\/link>/) || xml.match(/<link[^>]*href=[\"']([^\"']*)[\"']/);\n  const link = linkMatch ? linkMatch[1].trim() : '';\n\n  const pubDate = stripHtml(getRawTag('pubDate'));\n  const description = stripHtml(getRawTag('description'));\n\n  articles.push({\n    json: {\n      title: title,\n      description: description || '',\n      content: description || '',\n      author: '',\n      source: { name: sourceName },\n      url: link,\n      urlToImage: '',\n      publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),\n      scrapedFrom: 'google-news-rss'\n    }\n  });\n}\n\nreturn articles.length > 0 ? articles : [];"
+      },
+      "name": "Parse RSS Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        160
+      ],
+      "id": "a1b2c3d4-0012-4000-8000-000000000012",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass-through node that acts as a single reference point\n// for Build News Object. Both NewsAPI and RSS articles converge here.\n// Adds source tracking if not present.\nconst data = { ...$json };\nif (!data.scrapedFrom) {\n  data.scrapedFrom = 'newsapi';\n}\nreturn [{ json: data }];"
+      },
+      "name": "All Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        380
+      ],
+      "id": "a1b2c3d4-0013-4000-8000-000000000013",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Scrape Article Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "a1b2c3d4-0014-4000-8000-000000000014",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract readable text from HTML page\n// This node is OPTIONAL - enable it to get full article content\nconst html = $json.data || '';\nconst prevData = $('All Articles').item.json;\n\n// Remove scripts, styles, nav, footer, ads\nlet text = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<nav[\\s\\S]*?<\\/nav>/gi, '')\n  .replace(/<footer[\\s\\S]*?<\\/footer>/gi, '')\n  .replace(/<header[\\s\\S]*?<\\/header>/gi, '');\n\n// Extract text from article/main tags if they exist\nconst articleMatch = text.match(/<article[^>]*>([\\s\\S]*?)<\\/article>/) || text.match(/<main[^>]*>([\\s\\S]*?)<\\/main>/);\nif (articleMatch) {\n  text = articleMatch[1];\n}\n\n// Strip remaining HTML tags and clean up\ntext = text\n  .replace(/<[^>]*>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .replace(/&nbsp;/g, ' ')\n  .replace(/&amp;/g, '&')\n  .replace(/&lt;/g, '<')\n  .replace(/&gt;/g, '>')\n  .trim()\n  .substring(0, 3000); // Limit content length\n\nreturn [{\n  json: {\n    ...prevData,\n    content: text || prevData.content || prevData.description\n  }\n}];"
+      },
+      "name": "Extract Article Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -20
+      ],
+      "id": "a1b2c3d4-0015-4000-8000-000000000015",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4o-mini",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a news analysis AI. Analyze articles and return ONLY valid JSON with no extra text or markdown."
+            },
+            {
+              "content": "=Analyze this news article and classify it:\n\nTitle: {{$json.title}}\nDescription: {{$json.description}}\nContent: {{$json.content}}\n\nReturn ONLY this JSON format:\n{\n  \"topic\": \"one word lowercase topic\",\n  \"category\": \"one of: Gold, Stocks, Market, Technology, Politics, Economy, Cryptocurrency, Sports, Entertainment, Health, Science, Other\",\n  \"tags\": [\"4 to 6 lowercase-hyphen seo tags\"],\n  \"summary\": \"2 sentence summary of the article\"\n}"
+            }
+          ]
+        },
+        "options": {},
+        "requestOptions": {}
+      },
+      "name": "AI Classify & Summarize",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        380
+      ],
+      "id": "979e8f2a-b03f-4999-86bb-3ed623d02e1a",
+      "credentials": {
+        "openAiApi": {
+          "id": "Lkl9iNa1LJMElecR",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge original article data with AI classification\nconst article = $('All Articles').item.json;\nconst aiRaw = $json.message?.content || '{}';\n\nlet ai = {};\ntry {\n  // Clean potential markdown code fences from AI response\n  const cleaned = aiRaw.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  ai = JSON.parse(cleaned);\n} catch (e) {\n  ai = { topic: 'unknown', category: 'Other', tags: [], summary: '' };\n}\n\nreturn [{\n  json: {\n    title: article.title || '',\n    description: article.description || '',\n    source: (typeof article.source === 'object' ? article.source?.name : article.source) || '',\n    author: article.author || 'Unknown',\n    url: article.url || '',\n    imageUrl: article.urlToImage || '',\n    publishedAt: article.publishedAt || '',\n    topic: ai.topic || 'unknown',\n    category: ai.category || 'Other',\n    tags: Array.isArray(ai.tags) ? ai.tags.join(', ') : '',\n    summary: ai.summary || article.description || '',\n    scrapedFrom: article.scrapedFrom || 'unknown',\n    createdAt: new Date().toISOString()\n  }\n}];"
+      },
+      "name": "Build News Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        380
+      ],
+      "id": "b7cff543-08cd-4450-8190-ec191ca58ebd",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate + Deduplicate articles (in-memory across all items in batch)\nconst seen = new Set();\nreturn items.filter(item => {\n  const title = (item.json.title || '').trim();\n  const summary = (item.json.summary || '').trim();\n  const description = (item.json.description || '').trim();\n  \n  if (!title || title === '[removed]') return false;\n  if (!summary && !description) return false;\n  \n  const key = title.toLowerCase();\n  if (seen.has(key)) return false;\n  seen.add(key);\n  return true;\n});"
+      },
+      "name": "Deduplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        380
+      ],
+      "id": "88366e7d-b5e5-46e2-9160-45f38742a370",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "news",
+        "updateKey": "title",
+        "fields": "title,description,source,author,url,imageUrl,publishedAt,topic,category,tags,summary,scrapedFrom,createdAt",
+        "options": {
+          "upsert": true
+        }
+      },
+      "name": "MongoDB Insert",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        240
+      ],
+      "id": "e7d88007-2186-40c0-b9fb-7082814b35c1",
+      "credentials": {
+        "mongoDb": {
+          "id": "LxOJfeYcSjHNU1UQ",
+          "name": "MongoDB account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8",
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1653336468,
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit#gid=1653336468"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "author",
+              "displayName": "author",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "topic",
+              "displayName": "topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "publishedAt",
+              "displayName": "publishedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scrapedFrom",
+              "displayName": "scrapedFrom",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1780,
+        440
+      ],
+      "id": "03874fe2-cfa4-48b6-a46c-a4bbc8961237",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Tr0eKG5t1j7d44Qc",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "fromJson"
+      },
+      "name": "Create Excel File",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        640
+      ],
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "fileName": "/data/news_export.xlsx",
+        "options": {}
+      },
+      "name": "Save Excel",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        640
+      ],
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "name": "AI Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        760
+      ],
+      "id": "6c46d922-a367-4e06-97fa-06ed311fd3bf"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch metal + crypto prices from multiple APIs with fallbacks\nconst results = { gold: 0, silver: 0, platinum: 0, palladium: 0, bitcoin_usd: 0, bitcoin_inr: 0, ethereum_usd: 0, ethereum_inr: 0 };\nconst sources = [];\n\n// Helper to fetch with timeout\nasync function safeFetch(url, label) {\n  try {\n    const controller = new AbortController();\n    const timeout = setTimeout(() => controller.abort(), 8000);\n    const res = await fetch(url, { signal: controller.signal });\n    clearTimeout(timeout);\n    if (!res.ok) return null;\n    return await res.json();\n  } catch (e) {\n    return null;\n  }\n}\n\n// Source 1: metals.live for gold/silver/platinum/palladium\nconst metalsData = await safeFetch('https://api.metals.live/v1/spot', 'metals.live');\nif (Array.isArray(metalsData)) {\n  for (const obj of metalsData) {\n    for (const [key, value] of Object.entries(obj)) {\n      if (typeof value === 'number' && results.hasOwnProperty(key)) {\n        results[key] = value;\n      }\n    }\n  }\n  if (results.gold > 0) sources.push('metals.live');\n}\n\n// Source 2: CoinGecko for gold (via tether-gold XAUT ≈ 1 oz gold) + crypto\nconst cgData = await safeFetch('https://api.coingecko.com/api/v3/simple/price?ids=tether-gold,bitcoin,ethereum&vs_currencies=usd,inr', 'coingecko');\nif (cgData) {\n  // XAUT (Tether Gold) tracks 1 troy oz of gold\n  if (results.gold === 0 && cgData['tether-gold']?.usd) {\n    results.gold = Math.round(cgData['tether-gold'].usd * 100) / 100;\n    sources.push('coingecko-xaut');\n  }\n  if (cgData.bitcoin) {\n    results.bitcoin_usd = cgData.bitcoin.usd || 0;\n    results.bitcoin_inr = cgData.bitcoin.inr || 0;\n  }\n  if (cgData.ethereum) {\n    results.ethereum_usd = cgData.ethereum.usd || 0;\n    results.ethereum_inr = cgData.ethereum.inr || 0;\n  }\n  sources.push('coingecko');\n}\n\nconst now = new Date().toISOString();\nconst date = now.split('T')[0];\nconst usdToInr = cgData?.bitcoin?.inr && cgData?.bitcoin?.usd ? Math.round((cgData.bitcoin.inr / cgData.bitcoin.usd) * 100) / 100 : 83.5;\nconst troyOzToGram = 31.1035;\n\nreturn [{\n  json: {\n    date,\n    gold_usd_per_oz: results.gold,\n    gold_inr_per_gram: results.gold > 0 ? Math.round((results.gold / troyOzToGram) * usdToInr * 100) / 100 : 0,\n    gold_inr_per_10gram: results.gold > 0 ? Math.round((results.gold / troyOzToGram) * usdToInr * 10 * 100) / 100 : 0,\n    silver_usd_per_oz: results.silver,\n    silver_inr_per_gram: results.silver > 0 ? Math.round((results.silver / troyOzToGram) * usdToInr * 100) / 100 : 0,\n    silver_inr_per_kg: results.silver > 0 ? Math.round((results.silver / troyOzToGram) * usdToInr * 1000 * 100) / 100 : 0,\n    platinum_usd_per_oz: results.platinum,\n    palladium_usd_per_oz: results.palladium,\n    bitcoin_usd: results.bitcoin_usd,\n    bitcoin_inr: results.bitcoin_inr,\n    ethereum_usd: results.ethereum_usd,\n    ethereum_inr: results.ethereum_inr,\n    usd_to_inr_rate: usdToInr,\n    fetchedAt: now,\n    source: sources.join(', ') || 'none'\n  }\n}];"
+      },
+      "name": "Fetch Metal Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        960
+      ],
+      "id": "a1b2c3d4-0020-4000-8000-000000000020",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through - data is already formatted by Fetch Metal Prices\nreturn items;"
+      },
+      "name": "Format Metal Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        960
+      ],
+      "id": "a1b2c3d4-0021-4000-8000-000000000021",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "metal_prices",
+        "fields": "date,gold_usd_per_oz,gold_inr_per_gram,gold_inr_per_10gram,silver_usd_per_oz,silver_inr_per_gram,silver_inr_per_kg,platinum_usd_per_oz,palladium_usd_per_oz,bitcoin_usd,bitcoin_inr,ethereum_usd,ethereum_inr,usd_to_inr_rate,fetchedAt,source",
+        "options": {}
+      },
+      "name": "MongoDB Metal Prices",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        780,
+        880
+      ],
+      "id": "a1b2c3d4-0022-4000-8000-000000000022",
+      "credentials": {
+        "mongoDb": {
+          "id": "LxOJfeYcSjHNU1UQ",
+          "name": "MongoDB account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8",
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Metal Prices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gold_usd_per_oz",
+              "displayName": "gold_usd_per_oz",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gold_inr_per_gram",
+              "displayName": "gold_inr_per_gram",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gold_inr_per_10gram",
+              "displayName": "gold_inr_per_10gram",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "silver_usd_per_oz",
+              "displayName": "silver_usd_per_oz",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "silver_inr_per_gram",
+              "displayName": "silver_inr_per_gram",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "silver_inr_per_kg",
+              "displayName": "silver_inr_per_kg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fetchedAt",
+              "displayName": "fetchedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Sheets Metal Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        780,
+        1060
+      ],
+      "id": "a1b2c3d4-0023-4000-8000-000000000023",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Tr0eKG5t1j7d44Qc",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Perplexity API request body for each topic\n// Perplexity Sonar does real-time web search for latest news\nconst topic = $json.topic;\n\nreturn [{\n  json: {\n    topic: topic,\n    requestBody: {\n      model: 'sonar',\n      messages: [\n        {\n          role: 'system',\n          content: 'You are a news aggregator. Return ONLY a valid JSON array of news articles. No extra text, no markdown, no explanation. Each article must have: title, description, source, author, url, publishedAt (ISO date string). Return exactly 5 articles.'\n        },\n        {\n          role: 'user',\n          content: `Find the 5 most recent and trending news articles about: ${topic}. Focus on today's news. Return as a JSON array.`\n        }\n      ],\n      temperature: 0.1,\n      max_tokens: 2000\n    }\n  }\n}];"
+      },
+      "name": "Build Perplexity Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        -120
+      ],
+      "id": "a1b2c3d4-0030-4000-8000-000000000030",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_PERPLEXITY_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.requestBody)}}",
+        "options": {}
+      },
+      "name": "Fetch Perplexity News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -120
+      ],
+      "id": "a1b2c3d4-0031-4000-8000-000000000031",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Perplexity Sonar response into article format\nconst topic = $('Build Perplexity Request').item.json.topic;\nconst response = $json;\n\n// Extract the content from Perplexity response\nconst content = response.choices?.[0]?.message?.content || '';\n\n// Extract citations/sources if available\nconst citations = response.citations || [];\n\nlet articles = [];\n\ntry {\n  // Clean markdown fences if present\n  const cleaned = content.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  \n  // Handle both array and object with articles key\n  const items = Array.isArray(parsed) ? parsed : (parsed.articles || parsed.news || [parsed]);\n  \n  articles = items.map((item, idx) => ({\n    json: {\n      title: item.title || '',\n      description: item.description || item.summary || '',\n      content: item.description || item.summary || item.content || '',\n      author: item.author || '',\n      source: { name: item.source || item.publisher || 'Perplexity' },\n      url: item.url || item.link || citations[idx] || '',\n      urlToImage: item.image || item.imageUrl || '',\n      publishedAt: item.publishedAt || item.date || item.published_at || new Date().toISOString(),\n      scrapedFrom: 'perplexity-sonar'\n    }\n  }));\n} catch (e) {\n  // If JSON parsing fails, create a single article from the text response\n  if (content.length > 20) {\n    articles = [{\n      json: {\n        title: `Trending: ${topic}`,\n        description: content.substring(0, 500),\n        content: content,\n        author: '',\n        source: { name: 'Perplexity' },\n        url: citations[0] || '',\n        urlToImage: '',\n        publishedAt: new Date().toISOString(),\n        scrapedFrom: 'perplexity-sonar'\n      }\n    }];\n  }\n}\n\nreturn articles.length > 0 ? articles : [];"
+      },
+      "name": "Parse Perplexity Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -120
+      ],
+      "id": "a1b2c3d4-0032-4000-8000-000000000032",
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Categories",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Metal Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Categories": {
+      "main": [
+        [
+          {
+            "node": "Fetch NewsAPI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build RSS URLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Perplexity Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Topic": {
+      "main": [
+        [
+          {
+            "node": "Fetch NewsAPI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build RSS URLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Perplexity Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Metal Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NewsAPI": {
+      "main": [
+        [
+          {
+            "node": "Split Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Articles": {
+      "main": [
+        [
+          {
+            "node": "All Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build RSS URLs": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google News RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google News RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse RSS Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse RSS Articles": {
+      "main": [
+        [
+          {
+            "node": "All Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Perplexity Request": {
+      "main": [
+        [
+          {
+            "node": "Fetch Perplexity News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Perplexity News": {
+      "main": [
+        [
+          {
+            "node": "Parse Perplexity Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Perplexity Articles": {
+      "main": [
+        [
+          {
+            "node": "All Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Articles": {
+      "main": [
+        [
+          {
+            "node": "AI Classify & Summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Article Page": {
+      "main": [
+        [
+          {
+            "node": "Extract Article Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classify & Summarize": {
+      "main": [
+        [
+          {
+            "node": "Build News Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build News Object": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate": {
+      "main": [
+        [
+          {
+            "node": "MongoDB Insert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Excel File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Excel File": {
+      "main": [
+        [
+          {
+            "node": "Save Excel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Metal Prices": {
+      "main": [
+        [
+          {
+            "node": "Format Metal Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Metal Prices": {
+      "main": [
+        [
+          {
+            "node": "MongoDB Metal Prices",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sheets Metal Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Topic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "10261130-e4d1-4925-a5e0-f020f16a57c0",
+  "triggerCount": 0,
+  "shared": [
+    {
+      "createdAt": "2026-02-14T13:18:54.066Z",
+      "updatedAt": "2026-02-14T13:18:54.066Z",
+      "role": "workflow:owner",
+      "workflowId": "DcpifuCccI0stDAq",
+      "projectId": "qPQUO9KxJ6Fh2lcP",
+      "project": {
+        "createdAt": "2025-12-04T11:58:50.477Z",
+        "updatedAt": "2025-12-04T11:59:42.283Z",
+        "id": "qPQUO9KxJ6Fh2lcP",
+        "name": "vishal kumar <vishal.kumar@inc42.com>",
+        "type": "personal",
+        "projectRelations": [
+          {
+            "createdAt": "2025-12-04T11:58:50.477Z",
+            "updatedAt": "2025-12-04T11:58:50.477Z",
+            "role": "project:personalOwner",
+            "userId": "397dce9b-0f56-4b48-b26c-8013f2888540",
+            "projectId": "qPQUO9KxJ6Fh2lcP",
+            "user": {
+              "createdAt": "2025-12-04T11:58:50.423Z",
+              "updatedAt": "2025-12-04T12:00:26.000Z",
+              "id": "397dce9b-0f56-4b48-b26c-8013f2888540",
+              "email": "vishal.kumar@inc42.com",
+              "firstName": "vishal",
+              "lastName": "kumar",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-04T12:00:26.398Z",
+                "personalization_survey_n8n_version": "1.64.3",
+                "automationGoalDevops": [
+                  "data-syncing",
+                  "incident-response",
+                  "cloud-infrastructure-orchestration",
+                  "ci-cd"
+                ],
+                "companySize": "<20",
+                "companyType": "saas",
+                "role": "engineering",
+                "reportedSource": "linkedin"
+              },
+              "settings": {
+                "userActivated": false
+              },
+              "role": "global:owner",
+              "disabled": false,
+              "mfaEnabled": false,
+              "isPending": false,
+              "isOwner": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": []
+}
