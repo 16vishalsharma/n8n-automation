@@ -1,0 +1,1035 @@
+{
+  "updatedAt": "2026-03-07T11:49:38.501Z",
+  "createdAt": "2026-03-07T11:49:38.501Z",
+  "id": "9kajpY5ONC3qgkC9",
+  "name": "Market Prices Tracker",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 4
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        100,
+        400
+      ],
+      "id": "mp-0001-0001-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "path": "market-prices",
+        "formTitle": "Fetch Market Prices",
+        "formDescription": "Click submit to fetch latest market prices (stocks, crypto, metals)",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "trigger",
+              "requiredField": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        650
+      ],
+      "id": "mp-0002-0002-4000-8000-000000000002"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { trigger: 'manual', timestamp: new Date().toISOString() } }];"
+      },
+      "name": "Init",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        520
+      ],
+      "id": "mp-0003-0003-4000-8000-000000000003",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://api.coingecko.com/api/v3/simple/price",
+        "options": {
+          "timeout": 15000
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "ids",
+              "value": "bitcoin,ethereum,dogecoin"
+            },
+            {
+              "name": "vs_currencies",
+              "value": "usd,inr"
+            },
+            {
+              "name": "include_24hr_change",
+              "value": "true"
+            },
+            {
+              "name": "include_market_cap",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Fetch Crypto Prices",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        200
+      ],
+      "id": "mp-0004-0004-4000-8000-000000000004",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = items[0]?.json || {};\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\nconst btc = data.bitcoin || {};\nconst eth = data.ethereum || {};\nconst doge = data.dogecoin || {};\n\nreturn [{ json: {\n  date,\n  asset_type: 'crypto',\n  bitcoin_usd: btc.usd || 0,\n  bitcoin_inr: btc.inr || 0,\n  bitcoin_24h_change: Math.round((btc.usd_24h_change || 0) * 100) / 100,\n  bitcoin_market_cap_usd: btc.usd_market_cap || 0,\n  ethereum_usd: eth.usd || 0,\n  ethereum_inr: eth.inr || 0,\n  ethereum_24h_change: Math.round((eth.usd_24h_change || 0) * 100) / 100,\n  ethereum_market_cap_usd: eth.usd_market_cap || 0,\n  dogecoin_usd: doge.usd || 0,\n  dogecoin_inr: doge.inr || 0,\n  dogecoin_24h_change: Math.round((doge.usd_24h_change || 0) * 100) / 100,\n  dogecoin_market_cap_usd: doge.usd_market_cap || 0,\n  fetchedAt: now.toISOString(),\n  source: 'coingecko'\n}}];"
+      },
+      "name": "Format Crypto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        200
+      ],
+      "id": "mp-0005-0005-4000-8000-000000000005",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://api.coingecko.com/api/v3/simple/price",
+        "options": {
+          "timeout": 15000
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "ids",
+              "value": "tether-gold"
+            },
+            {
+              "name": "vs_currencies",
+              "value": "usd,inr"
+            },
+            {
+              "name": "include_24hr_change",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "name": "Fetch Gold CoinGecko",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        450
+      ],
+      "id": "mp-0006-0006-4000-8000-000000000006",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.goodreturns.in/gold-rates/",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "name": "Scrape Gold Silver INR",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        650
+      ],
+      "id": "mp-0007-0007-4000-8000-000000000007",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const goldCG = items[0]?.json || {};\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\nconst xaut = goldCG['tether-gold'] || goldCG;\nconst goldUsd = xaut.usd || 0;\nconst goldInr = xaut.inr || 0;\nconst gold24h = Math.round((xaut.usd_24h_change || 0) * 100) / 100;\n\nconst troyOzToGram = 31.1035;\nconst goldUsdPerGram = goldUsd ? Math.round((goldUsd / troyOzToGram) * 100) / 100 : 0;\n\n// Derive USD/INR rate from gold prices if available\nconst usdToInr = (goldUsd && goldInr) ? Math.round((goldInr / goldUsd) * 100) / 100 : 84.0;\nconst goldInrPerGram = goldUsdPerGram ? Math.round(goldUsdPerGram * usdToInr) : 0;\nconst goldInrPer10gram = goldInrPerGram * 10;\n\nreturn [{ json: {\n  date,\n  asset_type: 'metals',\n  gold_usd_per_oz: goldUsd,\n  gold_usd_per_gram: goldUsdPerGram,\n  gold_inr_per_gram: goldInrPerGram,\n  gold_inr_per_10gram: goldInrPer10gram,\n  gold_24h_change: gold24h,\n  usd_to_inr_rate: usdToInr,\n  fetchedAt: now.toISOString(),\n  source: 'coingecko'\n}}];"
+      },
+      "name": "Format Gold CoinGecko",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        450
+      ],
+      "id": "mp-0008-0008-4000-8000-000000000008",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = items[0]?.json?.data || items[0]?.json?.body || '';\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\nlet gold22k = 0, gold24k = 0, silverPerGram = 0, silverPerKg = 0;\n\ntry {\n  // Try to extract gold price from goodreturns page\n  // Pattern: \"22 Carat Gold\" ... price like \"6,850\" or \"68,500\"\n  const gold22Match = html.match(/22\\s*(?:Carat|K|Kt).*?([\\d,]+\\.?\\d*)\\s*(?:\\/g|per\\s*gram)/i);\n  const gold24Match = html.match(/24\\s*(?:Carat|K|Kt).*?([\\d,]+\\.?\\d*)\\s*(?:\\/g|per\\s*gram)/i);\n  \n  // Alternative: look for price table patterns\n  // Gold rate today in India per gram\n  const goldPriceMatch = html.match(/gold.*?price.*?today.*?(?:Rs\\.?|\u20b9)\\s*([\\d,]+)/i)\n    || html.match(/(?:Rs\\.?|\u20b9)\\s*([\\d,]+).*?(?:per\\s*(?:10)?\\s*gram|10g)/i);\n    \n  // Try multiple patterns for gold 22k per gram  \n  if (gold22Match) {\n    gold22k = parseFloat(gold22Match[1].replace(/,/g, ''));\n  }\n  if (gold24Match) {\n    gold24k = parseFloat(gold24Match[1].replace(/,/g, ''));\n  }\n  \n  // If we got per-10-gram price, convert\n  if (gold24k > 50000) { gold24k = Math.round(gold24k / 10); }\n  if (gold22k > 50000) { gold22k = Math.round(gold22k / 10); }\n  \n  if (!gold24k && goldPriceMatch) {\n    let price = parseFloat(goldPriceMatch[1].replace(/,/g, ''));\n    if (price > 50000) price = Math.round(price / 10);\n    gold24k = price;\n  }\n  \n  // Silver\n  const silverMatch = html.match(/silver.*?(?:Rs\\.?|\u20b9)\\s*([\\d,]+\\.?\\d*)/i)\n    || html.match(/(?:Rs\\.?|\u20b9)\\s*([\\d,]+\\.?\\d*).*?silver/i);\n  if (silverMatch) {\n    silverPerGram = parseFloat(silverMatch[1].replace(/,/g, ''));\n    if (silverPerGram > 500) {\n      silverPerKg = silverPerGram;\n      silverPerGram = Math.round(silverPerKg / 1000);\n    } else {\n      silverPerKg = silverPerGram * 1000;\n    }\n  }\n} catch(e) {\n  // scraping failed, values stay 0\n}\n\nreturn [{ json: {\n  date,\n  asset_type: 'metals_inr_scraped',\n  gold_22k_inr_per_gram: gold22k,\n  gold_24k_inr_per_gram: gold24k,\n  gold_24k_inr_per_10gram: gold24k * 10,\n  silver_inr_per_gram: silverPerGram,\n  silver_inr_per_kg: silverPerKg,\n  fetchedAt: now.toISOString(),\n  source: 'goodreturns.in'\n}}];"
+      },
+      "name": "Parse Gold Silver Scrape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        650
+      ],
+      "id": "mp-0009-0009-4000-8000-000000000009",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI",
+        "options": {
+          "timeout": 15000
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "interval",
+              "value": "1d"
+            },
+            {
+              "name": "range",
+              "value": "1d"
+            }
+          ]
+        }
+      },
+      "name": "Fetch NIFTY 50",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        900
+      ],
+      "id": "mp-0010-0010-4000-8000-000000000010",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EBSESN",
+        "options": {
+          "timeout": 15000
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "interval",
+              "value": "1d"
+            },
+            {
+              "name": "range",
+              "value": "1d"
+            }
+          ]
+        }
+      },
+      "name": "Fetch SENSEX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        1100
+      ],
+      "id": "mp-0011-0011-4000-8000-000000000011",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/",
+        "options": {
+          "timeout": 20000
+        },
+        "sendQuery": true,
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "interval",
+              "value": "1d"
+            },
+            {
+              "name": "range",
+              "value": "1d"
+            }
+          ]
+        }
+      },
+      "name": "Fetch Top Stocks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        1300
+      ],
+      "id": "mp-0012-0012-4000-8000-000000000012",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build requests for top Indian stocks\nconst stocks = [\n  { symbol: 'RELIANCE.NS', name: 'Reliance Industries' },\n  { symbol: 'TCS.NS', name: 'TCS' },\n  { symbol: 'INFY.NS', name: 'Infosys' },\n  { symbol: 'HDFCBANK.NS', name: 'HDFC Bank' },\n  { symbol: 'ICICIBANK.NS', name: 'ICICI Bank' },\n  { symbol: 'HINDUNILVR.NS', name: 'Hindustan Unilever' },\n  { symbol: 'ITC.NS', name: 'ITC' },\n  { symbol: 'SBIN.NS', name: 'SBI' },\n  { symbol: 'BHARTIARTL.NS', name: 'Bharti Airtel' },\n  { symbol: 'WIPRO.NS', name: 'Wipro' }\n];\n\nreturn stocks.map(s => ({ json: s }));"
+      },
+      "name": "Stock List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        300,
+        1300
+      ],
+      "id": "mp-0013-0013-4000-8000-000000000013",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{ $json.symbol }}",
+        "options": {
+          "timeout": 15000
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "interval",
+              "value": "1d"
+            },
+            {
+              "name": "range",
+              "value": "5d"
+            }
+          ]
+        }
+      },
+      "name": "Fetch Each Stock",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        550,
+        1500
+      ],
+      "id": "mp-0014-0014-4000-8000-000000000014",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = [];\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\nfor (const item of items) {\n  try {\n    const chart = item.json?.chart?.result?.[0] || {};\n    const meta = chart.meta || {};\n    const quotes = chart.indicators?.quote?.[0] || {};\n    const closes = quotes.close || [];\n    const latestPrice = meta.regularMarketPrice || closes[closes.length - 1] || 0;\n    const prevClose = meta.chartPreviousClose || meta.previousClose || closes[closes.length - 2] || 0;\n    const change = latestPrice && prevClose ? Math.round((latestPrice - prevClose) * 100) / 100 : 0;\n    const changePct = prevClose ? Math.round(((latestPrice - prevClose) / prevClose) * 10000) / 100 : 0;\n    \n    results.push({\n      json: {\n        date,\n        asset_type: 'indian_stock',\n        symbol: meta.symbol || 'unknown',\n        name: meta.shortName || meta.symbol || 'unknown',\n        price_inr: Math.round(latestPrice * 100) / 100,\n        previous_close: Math.round(prevClose * 100) / 100,\n        change: change,\n        change_percent: changePct,\n        day_high: meta.regularMarketDayHigh || 0,\n        day_low: meta.regularMarketDayLow || 0,\n        volume: meta.regularMarketVolume || 0,\n        currency: meta.currency || 'INR',\n        exchange: meta.exchangeName || 'NSE',\n        fetchedAt: now.toISOString(),\n        source: 'yahoo_finance'\n      }\n    });\n  } catch(e) {\n    // skip failed items\n  }\n}\n\nreturn results.length ? results : [{ json: { date, asset_type: 'indian_stock', error: 'no data', fetchedAt: now.toISOString() } }];"
+      },
+      "name": "Format Stocks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        1500
+      ],
+      "id": "mp-0015-0015-4000-8000-000000000015",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = items[0]?.json || {};\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\ntry {\n  const chart = data.chart?.result?.[0] || data;\n  const meta = chart.meta || data;\n  const quotes = chart.indicators?.quote?.[0] || {};\n  const closes = quotes.close || [];\n  const latestPrice = meta.regularMarketPrice || closes[closes.length - 1] || 0;\n  const prevClose = meta.chartPreviousClose || closes[closes.length - 2] || 0;\n  const change = latestPrice && prevClose ? Math.round((latestPrice - prevClose) * 100) / 100 : 0;\n  const changePct = prevClose ? Math.round(((latestPrice - prevClose) / prevClose) * 10000) / 100 : 0;\n  \n  return [{ json: {\n    date,\n    asset_type: 'index',\n    symbol: 'NIFTY_50',\n    name: 'NIFTY 50',\n    price_inr: Math.round(latestPrice * 100) / 100,\n    previous_close: Math.round(prevClose * 100) / 100,\n    change,\n    change_percent: changePct,\n    day_high: meta.regularMarketDayHigh || 0,\n    day_low: meta.regularMarketDayLow || 0,\n    fetchedAt: now.toISOString(),\n    source: 'yahoo_finance'\n  }}];\n} catch(e) {\n  return [{ json: { date, asset_type: 'index', symbol: 'NIFTY_50', error: e.message, fetchedAt: now.toISOString() } }];\n}"
+      },
+      "name": "Format NIFTY",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        900
+      ],
+      "id": "mp-0016-0016-4000-8000-000000000016",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = items[0]?.json || {};\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\ntry {\n  const chart = data.chart?.result?.[0] || data;\n  const meta = chart.meta || data;\n  const quotes = chart.indicators?.quote?.[0] || {};\n  const closes = quotes.close || [];\n  const latestPrice = meta.regularMarketPrice || closes[closes.length - 1] || 0;\n  const prevClose = meta.chartPreviousClose || closes[closes.length - 2] || 0;\n  const change = latestPrice && prevClose ? Math.round((latestPrice - prevClose) * 100) / 100 : 0;\n  const changePct = prevClose ? Math.round(((latestPrice - prevClose) / prevClose) * 10000) / 100 : 0;\n  \n  return [{ json: {\n    date,\n    asset_type: 'index',\n    symbol: 'SENSEX',\n    name: 'BSE SENSEX',\n    price_inr: Math.round(latestPrice * 100) / 100,\n    previous_close: Math.round(prevClose * 100) / 100,\n    change,\n    change_percent: changePct,\n    day_high: meta.regularMarketDayHigh || 0,\n    day_low: meta.regularMarketDayLow || 0,\n    fetchedAt: now.toISOString(),\n    source: 'yahoo_finance'\n  }}];\n} catch(e) {\n  return [{ json: { date, asset_type: 'index', symbol: 'SENSEX', error: e.message, fetchedAt: now.toISOString() } }];\n}"
+      },
+      "name": "Format SENSEX",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        1100
+      ],
+      "id": "mp-0017-0017-4000-8000-000000000017",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge all pricing data into unified records\nconst allItems = items.map(i => i.json);\nconst now = new Date();\nconst date = now.toISOString().split('T')[0];\n\n// Find each section\nconst crypto = allItems.find(i => i.asset_type === 'crypto') || {};\nconst metalsCG = allItems.find(i => i.asset_type === 'metals') || {};\nconst metalsScrape = allItems.find(i => i.asset_type === 'metals_inr_scraped') || {};\nconst nifty = allItems.find(i => i.asset_type === 'index' && i.symbol === 'NIFTY_50') || {};\nconst sensex = allItems.find(i => i.asset_type === 'index' && i.symbol === 'SENSEX') || {};\nconst stocks = allItems.filter(i => i.asset_type === 'indian_stock' && !i.error);\n\n// Use scraped INR prices if available, else CoinGecko derived\nconst goldInrPerGram = metalsScrape.gold_24k_inr_per_gram || metalsCG.gold_inr_per_gram || 0;\nconst goldInrPer10gram = metalsScrape.gold_24k_inr_per_10gram || metalsCG.gold_inr_per_10gram || 0;\nconst silverInrPerGram = metalsScrape.silver_inr_per_gram || 0;\nconst silverInrPerKg = metalsScrape.silver_inr_per_kg || 0;\n\n// Build the master record for MongoDB / Sheets\nconst masterRecord = {\n  date,\n  // Metals\n  gold_usd_per_oz: metalsCG.gold_usd_per_oz || 0,\n  gold_inr_per_gram: goldInrPerGram,\n  gold_inr_per_10gram: goldInrPer10gram,\n  gold_22k_inr_per_gram: metalsScrape.gold_22k_inr_per_gram || 0,\n  silver_inr_per_gram: silverInrPerGram,\n  silver_inr_per_kg: silverInrPerKg,\n  // Crypto\n  bitcoin_usd: crypto.bitcoin_usd || 0,\n  bitcoin_inr: crypto.bitcoin_inr || 0,\n  bitcoin_24h_change: crypto.bitcoin_24h_change || 0,\n  ethereum_usd: crypto.ethereum_usd || 0,\n  ethereum_inr: crypto.ethereum_inr || 0,\n  ethereum_24h_change: crypto.ethereum_24h_change || 0,\n  dogecoin_usd: crypto.dogecoin_usd || 0,\n  dogecoin_inr: crypto.dogecoin_inr || 0,\n  dogecoin_24h_change: crypto.dogecoin_24h_change || 0,\n  // Indian Market Indices\n  nifty50: nifty.price_inr || 0,\n  nifty50_change: nifty.change || 0,\n  nifty50_change_pct: nifty.change_percent || 0,\n  sensex: sensex.price_inr || 0,\n  sensex_change: sensex.change || 0,\n  sensex_change_pct: sensex.change_percent || 0,\n  // Top stocks summary\n  top_stocks: stocks.map(s => `${s.symbol}:${s.price_inr}(${s.change_percent}%)`).join(', '),\n  // Meta\n  usd_to_inr_rate: metalsCG.usd_to_inr_rate || 0,\n  fetchedAt: now.toISOString(),\n  source: 'coingecko+goodreturns+yahoo'\n};\n\n// Skip if all major values are 0 (total failure)\nconst hasData = masterRecord.gold_usd_per_oz > 0 || masterRecord.bitcoin_usd > 0 || masterRecord.nifty50 > 0;\nif (!hasData) {\n  return [{ json: { ...masterRecord, _skip: true, error: 'All sources returned 0' } }];\n}\n\nreturn [{ json: masterRecord }];"
+      },
+      "name": "Merge All Prices",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        650
+      ],
+      "id": "mp-0018-0018-4000-8000-000000000018",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter out records where _skip is true (all sources failed)\nconst record = items[0]?.json || {};\nif (record._skip) {\n  return [];\n}\nreturn items;"
+      },
+      "name": "Filter Empty",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        650
+      ],
+      "id": "mp-0019-0019-4000-8000-000000000019",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "metal_prices",
+        "updateKey": "date",
+        "fields": "date,gold_usd_per_oz,gold_inr_per_gram,gold_inr_per_10gram,gold_22k_inr_per_gram,silver_inr_per_gram,silver_inr_per_kg,bitcoin_usd,bitcoin_inr,bitcoin_24h_change,ethereum_usd,ethereum_inr,ethereum_24h_change,dogecoin_usd,dogecoin_inr,dogecoin_24h_change,nifty50,nifty50_change,nifty50_change_pct,sensex,sensex_change,sensex_change_pct,top_stocks,usd_to_inr_rate,fetchedAt,source",
+        "options": {
+          "upsert": true
+        }
+      },
+      "name": "MongoDB Metal Prices",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        500
+      ],
+      "id": "mp-0020-0020-4000-8000-000000000020",
+      "credentials": {
+        "mongoDb": {
+          "id": "LxOJfeYcSjHNU1UQ",
+          "name": "MongoDB account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8",
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Metal Prices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gold_usd_per_oz",
+              "displayName": "gold_usd_per_oz",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gold_inr_per_gram",
+              "displayName": "gold_inr_per_gram",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gold_inr_per_10gram",
+              "displayName": "gold_inr_per_10gram",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "silver_inr_per_gram",
+              "displayName": "silver_inr_per_gram",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "silver_inr_per_kg",
+              "displayName": "silver_inr_per_kg",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "bitcoin_usd",
+              "displayName": "bitcoin_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "bitcoin_inr",
+              "displayName": "bitcoin_inr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ethereum_usd",
+              "displayName": "ethereum_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ethereum_inr",
+              "displayName": "ethereum_inr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dogecoin_usd",
+              "displayName": "dogecoin_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dogecoin_inr",
+              "displayName": "dogecoin_inr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nifty50",
+              "displayName": "nifty50",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sensex",
+              "displayName": "sensex",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "top_stocks",
+              "displayName": "top_stocks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fetchedAt",
+              "displayName": "fetchedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Sheets Metal Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1500,
+        800
+      ],
+      "id": "mp-0021-0021-4000-8000-000000000021",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Tr0eKG5t1j7d44Qc",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "stock_prices",
+        "fields": "date,asset_type,symbol,name,price_inr,previous_close,change,change_percent,day_high,day_low,volume,currency,exchange,fetchedAt,source",
+        "options": {}
+      },
+      "name": "MongoDB Stocks",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        1500
+      ],
+      "id": "mp-0022-0022-4000-8000-000000000022",
+      "credentials": {
+        "mongoDb": {
+          "id": "LxOJfeYcSjHNU1UQ",
+          "name": "MongoDB account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8",
+          "mode": "list",
+          "cachedResultName": "unittestcases",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10aq7Da1wXxE-5VeeOxXJVSBDGltir1hKA1HkD735yW8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Stock Prices",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "symbol",
+              "displayName": "symbol",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "price_inr",
+              "displayName": "price_inr",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change",
+              "displayName": "change",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "change_percent",
+              "displayName": "change_percent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "day_high",
+              "displayName": "day_high",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "day_low",
+              "displayName": "day_low",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "volume",
+              "displayName": "volume",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fetchedAt",
+              "displayName": "fetchedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Sheets Stock Prices",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1100,
+        1750
+      ],
+      "id": "mp-0023-0023-4000-8000-000000000023",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Tr0eKG5t1j7d44Qc",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Init",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Init",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init": {
+      "main": [
+        [
+          {
+            "node": "Fetch Crypto Prices",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Gold CoinGecko",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Scrape Gold Silver INR",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch NIFTY 50",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch SENSEX",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Stock List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Crypto Prices": {
+      "main": [
+        [
+          {
+            "node": "Format Crypto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Crypto": {
+      "main": [
+        [
+          {
+            "node": "Merge All Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Gold CoinGecko": {
+      "main": [
+        [
+          {
+            "node": "Format Gold CoinGecko",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Gold CoinGecko": {
+      "main": [
+        [
+          {
+            "node": "Merge All Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Gold Silver INR": {
+      "main": [
+        [
+          {
+            "node": "Parse Gold Silver Scrape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gold Silver Scrape": {
+      "main": [
+        [
+          {
+            "node": "Merge All Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NIFTY 50": {
+      "main": [
+        [
+          {
+            "node": "Format NIFTY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format NIFTY": {
+      "main": [
+        [
+          {
+            "node": "Merge All Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch SENSEX": {
+      "main": [
+        [
+          {
+            "node": "Format SENSEX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format SENSEX": {
+      "main": [
+        [
+          {
+            "node": "Merge All Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock List": {
+      "main": [
+        [
+          {
+            "node": "Fetch Each Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Each Stock": {
+      "main": [
+        [
+          {
+            "node": "Format Stocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Stocks": {
+      "main": [
+        [
+          {
+            "node": "MongoDB Stocks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sheets Stock Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Prices": {
+      "main": [
+        [
+          {
+            "node": "Filter Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Empty": {
+      "main": [
+        [
+          {
+            "node": "MongoDB Metal Prices",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sheets Metal Prices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "15c423ea-b548-4dc6-931e-172b657e6830",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-03-07T11:49:38.502Z",
+      "createdAt": "2026-03-07T11:49:38.502Z",
+      "role": "workflow:owner",
+      "workflowId": "9kajpY5ONC3qgkC9",
+      "projectId": "qPQUO9KxJ6Fh2lcP",
+      "project": {
+        "updatedAt": "2025-12-04T11:59:42.283Z",
+        "createdAt": "2025-12-04T11:58:50.477Z",
+        "id": "qPQUO9KxJ6Fh2lcP",
+        "name": "vishal kumar <vishal.kumar@inc42.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "397dce9b-0f56-4b48-b26c-8013f2888540"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

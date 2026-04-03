@@ -495,11 +495,24 @@
     },
     {
       "parameters": {
-        "jsCode": "// Fetch metal + crypto prices from multiple APIs with fallbacks\nconst results = { gold: 0, silver: 0, platinum: 0, palladium: 0, bitcoin_usd: 0, bitcoin_inr: 0, ethereum_usd: 0, ethereum_inr: 0 };\nconst sources = [];\n\n// Helper to fetch with timeout\nasync function safeFetch(url, label) {\n  try {\n    const controller = new AbortController();\n    const timeout = setTimeout(() => controller.abort(), 8000);\n    const res = await fetch(url, { signal: controller.signal });\n    clearTimeout(timeout);\n    if (!res.ok) return null;\n    return await res.json();\n  } catch (e) {\n    return null;\n  }\n}\n\n// Source 1: metals.live for gold/silver/platinum/palladium\nconst metalsData = await safeFetch('https://api.metals.live/v1/spot', 'metals.live');\nif (Array.isArray(metalsData)) {\n  for (const obj of metalsData) {\n    for (const [key, value] of Object.entries(obj)) {\n      if (typeof value === 'number' && results.hasOwnProperty(key)) {\n        results[key] = value;\n      }\n    }\n  }\n  if (results.gold > 0) sources.push('metals.live');\n}\n\n// Source 2: CoinGecko for gold (via tether-gold XAUT ≈ 1 oz gold) + crypto\nconst cgData = await safeFetch('https://api.coingecko.com/api/v3/simple/price?ids=tether-gold,bitcoin,ethereum&vs_currencies=usd,inr', 'coingecko');\nif (cgData) {\n  // XAUT (Tether Gold) tracks 1 troy oz of gold\n  if (results.gold === 0 && cgData['tether-gold']?.usd) {\n    results.gold = Math.round(cgData['tether-gold'].usd * 100) / 100;\n    sources.push('coingecko-xaut');\n  }\n  if (cgData.bitcoin) {\n    results.bitcoin_usd = cgData.bitcoin.usd || 0;\n    results.bitcoin_inr = cgData.bitcoin.inr || 0;\n  }\n  if (cgData.ethereum) {\n    results.ethereum_usd = cgData.ethereum.usd || 0;\n    results.ethereum_inr = cgData.ethereum.inr || 0;\n  }\n  sources.push('coingecko');\n}\n\nconst now = new Date().toISOString();\nconst date = now.split('T')[0];\nconst usdToInr = cgData?.bitcoin?.inr && cgData?.bitcoin?.usd ? Math.round((cgData.bitcoin.inr / cgData.bitcoin.usd) * 100) / 100 : 83.5;\nconst troyOzToGram = 31.1035;\n\nreturn [{\n  json: {\n    date,\n    gold_usd_per_oz: results.gold,\n    gold_inr_per_gram: results.gold > 0 ? Math.round((results.gold / troyOzToGram) * usdToInr * 100) / 100 : 0,\n    gold_inr_per_10gram: results.gold > 0 ? Math.round((results.gold / troyOzToGram) * usdToInr * 10 * 100) / 100 : 0,\n    silver_usd_per_oz: results.silver,\n    silver_inr_per_gram: results.silver > 0 ? Math.round((results.silver / troyOzToGram) * usdToInr * 100) / 100 : 0,\n    silver_inr_per_kg: results.silver > 0 ? Math.round((results.silver / troyOzToGram) * usdToInr * 1000 * 100) / 100 : 0,\n    platinum_usd_per_oz: results.platinum,\n    palladium_usd_per_oz: results.palladium,\n    bitcoin_usd: results.bitcoin_usd,\n    bitcoin_inr: results.bitcoin_inr,\n    ethereum_usd: results.ethereum_usd,\n    ethereum_inr: results.ethereum_inr,\n    usd_to_inr_rate: usdToInr,\n    fetchedAt: now,\n    source: sources.join(', ') || 'none'\n  }\n}];"
+        "url": "https://api.coingecko.com/api/v3/simple/price",
+        "options": {},
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "ids",
+              "value": "tether-gold,bitcoin,ethereum"
+            },
+            {
+              "name": "vs_currencies",
+              "value": "usd,inr"
+            }
+          ]
+        }
       },
       "name": "Fetch Metal Prices",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         300,
         960
@@ -509,7 +522,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Pass through - data is already formatted by Fetch Metal Prices\nreturn items;"
+        "jsCode": "// Parse CoinGecko response into metal + crypto prices\n// CoinGecko returns: {\"tether-gold\":{\"usd\":2900,\"inr\":242000},\"bitcoin\":{\"usd\":70000,\"inr\":5800000},\"ethereum\":{\"usd\":2000,\"inr\":167000}}\nconst data = items[0]?.json || {};\n\nconst goldXaut = data['tether-gold'] || {};\nconst btc = data.bitcoin || {};\nconst eth = data.ethereum || {};\n\n// XAUT (Tether Gold) = 1 troy oz of gold\nconst goldUsdPerOz = goldXaut.usd || 0;\nconst troyOzToGram = 31.1035;\n\n// Calculate USD to INR from BTC prices (most liquid pair)\nconst usdToInr = (btc.inr && btc.usd) ? Math.round((btc.inr / btc.usd) * 100) / 100 : 83.5;\n\nconst now = new Date().toISOString();\nconst date = now.split('T')[0];\n\nreturn [{\n  json: {\n    date,\n    gold_usd_per_oz: goldUsdPerOz,\n    gold_inr_per_gram: goldUsdPerOz > 0 ? Math.round((goldUsdPerOz / troyOzToGram) * usdToInr * 100) / 100 : 0,\n    gold_inr_per_10gram: goldUsdPerOz > 0 ? Math.round((goldUsdPerOz / troyOzToGram) * usdToInr * 10 * 100) / 100 : 0,\n    silver_usd_per_oz: 0,\n    silver_inr_per_gram: 0,\n    silver_inr_per_kg: 0,\n    bitcoin_usd: btc.usd || 0,\n    bitcoin_inr: btc.inr || 0,\n    ethereum_usd: eth.usd || 0,\n    ethereum_inr: eth.inr || 0,\n    usd_to_inr_rate: usdToInr,\n    fetchedAt: now,\n    source: 'coingecko'\n  }\n}];"
       },
       "name": "Format Metal Prices",
       "type": "n8n-nodes-base.code",
