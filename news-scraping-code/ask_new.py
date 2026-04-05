@@ -120,17 +120,26 @@ async def ask(request: Request):
     internet_data = get_internet_context(query, max_items=5)
 
     prompt = build_prompt(query, db_data, internet_data)
+    print("Generated prompt", prompt)
+    async def generate():
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                stream=True
+            )
+            print("Streaming response started", response)
+            for chunk in response:
+                delta = chunk['choices'][0].get('delta', {})
+                content = delta.get('content', '')
+                if content:
+                    yield f"data: {json.dumps({'chunk': content})}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-        )
-        full_response = response['choices'][0]['message']['content']
-        return {"response": full_response}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI error: {str(e)}")
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @app.get("/status")
@@ -139,4 +148,8 @@ async def status():
 
 
 # Example run command:
-# uvicorn ask_new:app --host 0.0.0.0 --port 8000
+# uvicorn ask_new:app --host 0.0.0.0 --port 8001
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8001)
