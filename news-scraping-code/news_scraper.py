@@ -6,11 +6,13 @@ from datetime import datetime, date, time as dt_time
 from pathlib import Path
 
 import requests
+import openai
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
 from pymongo import MongoClient
 
 # Load environment variables from .env if present
+# python3 news_scraper.py --auto
+# curl -X POST -N http://localhost:8002/ask -H "Content-Type: application/json" -d '{"query":"latest news on AI"}'
 load_dotenv()
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
@@ -22,6 +24,8 @@ if not NEWSAPI_KEY:
     raise SystemExit("Missing NEWSAPI_KEY in environment")
 if not OPENAI_API_KEY:
     raise SystemExit("Missing OPENAI_API_KEY in environment")
+
+openai.api_key = OPENAI_API_KEY
 
 DEFAULT_TOPICS = [
     "latest breaking news today",
@@ -154,30 +158,24 @@ def infer_topic_from_text(text: str):
 
 
 def openai_classify_and_summarize(article):
-    from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-
-    model = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.1,
-        openai_api_key=OPENAI_API_KEY,
-        streaming=True,
-        callbacks=[StreamingStdOutCallbackHandler()],
-    )
-
     prompt = (
         "You are a news analysis AI. Analyze the article and return ONLY valid JSON without markdown or extra text. "
-        "Input is {title} and {description}. Output format: {topic, category, tags, summary}."
+        "Input is title and description. Output format: {topic, category, tags, summary}."
     )
 
     messages = [
-        ("system", "You are a news analysis AI. Analyze articles and return ONLY valid JSON with no extra text or markdown."),
-        ("human", f"Title: {article.get('title', '')[:800]}\nDescription: {article.get('description', '')[:1200]}"),
+        {"role": "system", "content": "You are a news analysis AI. Analyze articles and return ONLY valid JSON with no extra text or markdown."},
+        {"role": "user", "content": f"Title: {article.get('title', '')[:800]}\nDescription: {article.get('description', '')[:1200]}"},
     ]
 
-    response = model.invoke(messages)
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=0.1,
+        max_tokens=500,
+    )
 
-    # The streaming callback prints tokens, and response.content has the final text
-    text = response.content.strip()
+    text = response.choices[0].message.content.strip()
 
     # attempt to parse JSON from output
     cleaned = re.sub(r"```json|```", "", text, flags=re.IGNORECASE).strip()
