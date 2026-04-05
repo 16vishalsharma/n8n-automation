@@ -13,6 +13,8 @@ from pymongo import MongoClient
 
 load_dotenv()
 
+print("Loading environment variables")
+
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
@@ -23,10 +25,13 @@ if not OPENAI_API_KEY:
 
 openai.api_key = OPENAI_API_KEY
 
+print("Connecting to MongoDB")
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 news_collection = db.news
 latest_news_collection = db.latest_news
+
+print("App loaded successfully")
 
 app = FastAPI(title="ask-new API")
 
@@ -100,7 +105,8 @@ def build_prompt(query: str, db_context: List[Dict[str, Any]], internet_context:
 
     return (
         "You are a research assistant. Answer the user query using the provided database and internet context. "
-        "If the query is not covered, say so and still provide the best helpful answer. Then rewrite the answer clearly and concisely. "
+        "Provide a detailed and comprehensive answer, including the number of sources referenced (database and internet). "
+        "Supplement with your knowledge if needed. End with 3 suggested follow-up questions for the user. "
         "Return plain text only."
         "\n\nUser query: " + query + "\n\n"
         "Database context:\n" + (db_text or "None") + "\n\n"
@@ -148,7 +154,7 @@ async def status():
 
 
 # Example run command:
-# uvicorn ask_new:app --host 0.0.0.0 --port 8001
+# uvicorn ask_new:app --host 0.0.0.0 --port 8002
 
 if __name__ == "__main__":
     import uvicorn
