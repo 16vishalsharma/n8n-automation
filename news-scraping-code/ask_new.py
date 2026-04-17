@@ -1,10 +1,12 @@
 import os
 import json
 import re
+import asyncio
 from typing import Any, Dict, List
 
 import httpx
 import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +19,8 @@ print("Loading environment variables")
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGODB_URI", "mongodb+srv://vk1204133_db_user:7kAvOj3eoqnEho6x@cluster0.ren5mdc.mongodb.net/notify_db?retryWrites=true&w=majority")
+# MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("MONGO_DB", "notify_db")
 
 if not OPENAI_API_KEY:
@@ -25,9 +28,12 @@ if not OPENAI_API_KEY:
 
 openai.api_key = OPENAI_API_KEY
 
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY)
+
 print("Connecting to MongoDB")
-client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client[DB_NAME]
 news_collection = db.news
 latest_news_collection = db.latest_news
 
@@ -126,26 +132,42 @@ async def ask(request: Request):
     internet_data = get_internet_context(query, max_items=5)
 
     prompt = build_prompt(query, db_data, internet_data)
-    print("Generated prompt", prompt)
+
     async def generate():
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                stream=True
+            # Run the sync OpenAI call in a thread
+            response = await asyncio.to_thread(
+                lambda: client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    stream=True
+                )
             )
-            print("Streaming response started", response)
-            for chunk in response:
-                delta = chunk['choices'][0].get('delta', {})
-                content = delta.get('content', '')
-                if content:
-                    yield f"data: {json.dumps({'chunk': content})}\n\n"
-            yield "data: [DONE]\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+            for chunk in response:
+                if chunk and chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    content = delta.content if delta.content else ""
+                    if content:
+                        yield f"data: {json.dumps({'chunk': content})}\n\n"
+
+            # Send completion signal
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            error_msg = f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield error_msg
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
 
 
 @app.get("/status")
@@ -158,4 +180,4 @@ async def status():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8004)

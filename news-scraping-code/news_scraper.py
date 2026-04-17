@@ -7,6 +7,7 @@ from pathlib import Path
 
 import requests
 import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
@@ -17,7 +18,8 @@ load_dotenv()
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_URI = os.getenv("MONGODB_URI", "mongodb+srv://vk1204133_db_user:7kAvOj3eoqnEho6x@cluster0.ren5mdc.mongodb.net/notify_db?retryWrites=true&w=majority")
+# MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("MONGO_DB", "notify_db")
 
 if not NEWSAPI_KEY:
@@ -26,6 +28,7 @@ if not OPENAI_API_KEY:
     raise SystemExit("Missing OPENAI_API_KEY in environment")
 
 openai.api_key = OPENAI_API_KEY
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 DEFAULT_TOPICS = [
     "latest breaking news today",
@@ -168,7 +171,7 @@ def openai_classify_and_summarize(article):
         {"role": "user", "content": f"Title: {article.get('title', '')[:800]}\nDescription: {article.get('description', '')[:1200]}"},
     ]
 
-    response = openai.ChatCompletion.create(
+    response = openai_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
         temperature=0.1,
@@ -204,7 +207,7 @@ def upsert_article(doc):
     latest_news_collection.update_one(query, update, upsert=True)
 
 
-def run(topic: str = None, force: bool = False):
+def run(topic: str = None, force: bool = False, limit: int = None):
     topic = normalize_topic(topic or "latest breaking news today")
 
     # Check daily limit
@@ -245,6 +248,9 @@ def run(topic: str = None, force: bool = False):
             return
         deduped = deduped[:max_to_process]
 
+    if limit is not None:
+        deduped = deduped[:limit]
+
     stored_docs = []
 
     # 2) classify and store
@@ -276,8 +282,14 @@ def run(topic: str = None, force: bool = False):
 
     # Export latest run articles to JSON file
     out_path = Path("news-article.json").resolve()
+    serializable_docs = []
+    for doc in stored_docs:
+        doc_copy = doc.copy()
+        if isinstance(doc_copy.get("createdAt"), datetime):
+            doc_copy["createdAt"] = doc_copy["createdAt"].isoformat()
+        serializable_docs.append(doc_copy)
     with out_path.open("w", encoding="utf-8") as f:
-        json.dump(stored_docs, f, ensure_ascii=False, indent=2)
+        json.dump(serializable_docs, f, ensure_ascii=False, indent=2)
     print("Wrote", len(stored_docs), "articles to", out_path)
 
 
@@ -288,11 +300,12 @@ if __name__ == "__main__":
     parser.add_argument("--topic", type=str, default=None, help="News topic to search")
     parser.add_argument("--auto", action="store_true", help="Run all default topics sequentially")
     parser.add_argument("--force", action="store_true", help="Ignore daily limit and force ingestion")
+    parser.add_argument("--limit", type=int, default=None, help="Maximum number of articles to fetch")
     args = parser.parse_args()
 
     if args.auto:
         for t in DEFAULT_TOPICS:
-            run(t, force=args.force)
+            run(t, force=args.force, limit=args.limit)
             time.sleep(2)
     else:
-            run(args.topic, force=args.force)
+            run(args.topic, force=args.force, limit=args.limit)
