@@ -1,0 +1,479 @@
+{
+  "name": "auto-short-video-generation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1800, -250]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000002",
+      "name": "Schedule Trigger (10:00 IST daily)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-1800, -100],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto-shorts",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000020",
+      "name": "Webhook Trigger (POST topic)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1800, 50],
+      "webhookId": "auto-shorts-webhook"
+    },
+    {
+      "parameters": {
+        "formTitle": "Generate Comedy Short",
+        "formDescription": "Type a topic + optional reference content; the workflow will generate, render and upload a YouTube Short.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Topic",
+              "placeholder": "e.g. Indian boss in Monday morning meeting",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Content",
+              "fieldType": "textarea",
+              "placeholder": "Optional: paste a tweet, joke, news bit or notes the script should incorporate."
+            },
+            {
+              "fieldLabel": "Privacy",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  { "option": "private" },
+                  { "option": "unlisted" },
+                  { "option": "public" }
+                ]
+              }
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000024",
+      "name": "Form Trigger (Topic + Content)",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [-1800, 200],
+      "webhookId": "auto-shorts-form"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Normalize all trigger payloads into { topic, content, privacyOverride }.\n// Manual / Schedule -> empty topic (random idea).\n// Webhook POST body -> { topic, content, privacy }.\n// Form Trigger -> fields placed on $json by their labels (Topic, Content, Privacy).\nconst item = $input.first().json || {};\nconst body = item.body || {};\nconst query = item.query || {};\nconst params = item.params || {};\nconst topic = String(\n  body.topic || query.topic || params.topic ||\n  item.Topic || item.topic || ''\n).trim();\nconst content = String(\n  body.content || query.content || params.content ||\n  item.Content || item.content || ''\n).trim();\nconst privacy = String(\n  body.privacy || query.privacy ||\n  item.Privacy || item.privacy || ''\n).trim().toLowerCase();\nconst allowedPrivacy = ['public', 'unlisted', 'private'];\nreturn [{\n  json: {\n    topic,\n    content,\n    privacyOverride: allowedPrivacy.includes(privacy) ? privacy : ''\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000021",
+      "name": "Resolve Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1580, -100]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-1",
+              "name": "runId",
+              "value": "={{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-2",
+              "name": "workspace",
+              "value": "=/tmp/auto-shorts/{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-3",
+              "name": "openaiModel",
+              "value": "gpt-4o-mini",
+              "type": "string"
+            },
+            {
+              "id": "cfg-4",
+              "name": "ttsVoice",
+              "value": "nova",
+              "type": "string"
+            },
+            {
+              "id": "cfg-5",
+              "name": "pexelsQueryFallback",
+              "value": "indian street city people",
+              "type": "string"
+            },
+            {
+              "id": "cfg-6",
+              "name": "youtubePrivacy",
+              "value": "={{ $('Resolve Input').first().json.privacyOverride || 'private' }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-7",
+              "name": "bgmPath",
+              "value": "/opt/n8n/assets/bgm/comedy_bgm.mp3",
+              "type": "string"
+            },
+            {
+              "id": "cfg-8",
+              "name": "libraryDir",
+              "value": "/tmp/auto-shorts-library",
+              "type": "string"
+            },
+            {
+              "id": "cfg-9",
+              "name": "openaiKey",
+              "value": "={{ $env.OPENAI_API_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-10",
+              "name": "pixabayKey",
+              "value": "={{ $env.PIXABAY_API_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-11",
+              "name": "pexelsKey",
+              "value": "={{ $env.PEXELS_API_KEY }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000003",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1360, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst cfg = $input.first().json;\n['audio','clips','subs','output'].forEach(d => fs.mkdirSync(`${cfg.workspace}/${d}`, { recursive: true }));\nfs.mkdirSync(cfg.libraryDir, { recursive: true });\nreturn [{ json: { ...cfg, initialized: true } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000004",
+      "name": "Init Workspace",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1140, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Set Config').first().json.openaiModel, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'You write viral 30-50 second Indian relatable comedy scripts for YouTube Shorts. Output strict JSON only. Style: fast, meme-y, punchy, hook in first 3 seconds. Themes: office, college, parents, relationships, Mumbai locals, hostel life. Use Hinglish freely. No stage directions. Total script must be 70-110 words.' }, { role: 'user', content: 'Topic hint: ' + JSON.stringify($('Resolve Input').first().json.topic || '') + ' (if empty, pick a fresh viral idea; if non-empty, the script MUST be about this topic).\\nReference content / extra notes (optional): ' + JSON.stringify($('Resolve Input').first().json.content || '') + ' (if non-empty, weave the key facts, jokes or angle from this into the script naturally — do not just paste it).\\nReturn JSON with keys: idea (1 sentence), script (full script as one string, 70-110 words), lines (array of 4-7 short subtitle-friendly lines covering the script in order, each <= 60 chars), search_terms (array of 3-5 single-word lowercase stock-video search terms relevant to the idea, e.g. office, traffic, student).' } ] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000005",
+      "name": "Generate Idea + Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-920, -100],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "openAiApi": {
+          "id": "Lkl9iNa1LJMElecR",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst cfg = $('Set Config').first().json;\nconst raw = $input.first().json;\nconst content = raw.choices?.[0]?.message?.content || '{}';\nlet parsed;\ntry { parsed = JSON.parse(content); } catch (e) {\n  throw new Error('Model did not return valid JSON: ' + content.slice(0, 200));\n}\nconst idea = parsed.idea || 'Untitled';\nconst script = (parsed.script || '').trim();\nconst lines = Array.isArray(parsed.lines) && parsed.lines.length ? parsed.lines : script.split(/(?<=[.!?])\\s+/).filter(Boolean);\nconst searchTerms = Array.isArray(parsed.search_terms) && parsed.search_terms.length ? parsed.search_terms : ['indian', 'city', 'people'];\n// StreamElements TTS caps around 600 chars — guard.\nconst safeScript = script.length > 580 ? script.slice(0, 580) : script;\nfs.writeFileSync(path.join(cfg.workspace, 'script.txt'), script);\nfs.writeFileSync(path.join(cfg.workspace, 'idea.txt'), idea);\nreturn [{ json: { idea, script: safeScript, fullScript: script, lines, searchTerms } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000006",
+      "name": "Parse Script",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-700, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst https = require('https');\nconst cfg = $('Set Config').first().json;\nconst script = ($input.first().json.script || '').trim();\nif (!script) throw new Error('No script to synthesize');\nconst apiKey = cfg.openaiKey;\nif (!apiKey) throw new Error('OPENAI_API_KEY missing — Set Config did not resolve $env.OPENAI_API_KEY');\nconst dest = `${cfg.workspace}/audio/voice.mp3`;\nconst body = JSON.stringify({ model: 'tts-1', voice: cfg.ttsVoice || 'nova', input: script, response_format: 'mp3' });\nawait new Promise((resolve, reject) => {\n  const req = https.request({\n    method: 'POST',\n    hostname: 'api.openai.com',\n    path: '/v1/audio/speech',\n    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }\n  }, (res) => {\n    if (res.statusCode !== 200) {\n      let err = '';\n      res.on('data', c => err += c);\n      res.on('end', () => reject(new Error(`OpenAI TTS HTTP ${res.statusCode}: ${err.slice(0,500)}`)));\n      return;\n    }\n    const file = fs.createWriteStream(dest);\n    res.pipe(file);\n    file.on('finish', () => file.close(() => resolve()));\n    file.on('error', reject);\n  });\n  req.on('error', reject);\n  req.write(body);\n  req.end();\n});\nconst stat = fs.statSync(dest);\nif (stat.size < 1000) throw new Error('Generated mp3 is too small (' + stat.size + ' bytes)');\nreturn [{ json: { audioPath: dest, sizeBytes: stat.size, voice: cfg.ttsVoice || 'nova' } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000007",
+      "name": "Generate Voice (TTS)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const { execSync } = require('child_process');\nconst cfg = $('Set Config').first().json;\nconst out = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ${cfg.workspace}/audio/voice.mp3`).toString().trim();\nreturn [{ json: { stdout: out, duration: parseFloat(out) } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000009",
+      "name": "Get Audio Duration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Get vertical stock clips. Tries Pexels first (cfg.pexelsKey from $env), then Pixabay (cfg.pixabayKey from $env).\nconst https = require('https');\nconst cfg = $('Set Config').first().json;\nconst terms = ($('Parse Script').first().json.searchTerms || []).slice(0,3).join(' ') || cfg.pexelsQueryFallback;\nconst getJson = (opts) => new Promise((resolve, reject) => {\n  https.get(opts, (res) => {\n    let data = '';\n    res.on('data', (c) => data += c);\n    res.on('end', () => { try { resolve({ status: res.statusCode, body: JSON.parse(data) }); } catch (e) { resolve({ status: res.statusCode, body: null, raw: data.slice(0,300) }); } });\n  }).on('error', reject);\n});\nconst urls = [];\nconst sources = [];\nconst pexKey = cfg.pexelsKey;\nif (pexKey) {\n  try {\n    const r = await getJson({\n      hostname: 'api.pexels.com',\n      path: `/videos/search?query=${encodeURIComponent(terms)}&orientation=portrait&size=medium&per_page=6`,\n      headers: { 'Authorization': pexKey }\n    });\n    if (r.status === 200 && r.body && r.body.videos) {\n      for (const v of r.body.videos.slice(0, 6)) {\n        const candidates = (v.video_files || []).filter(f => f.file_type === 'video/mp4');\n        const portrait = candidates.find(f => (f.height || 0) >= (f.width || 0));\n        const file = portrait || candidates.find(f => f.quality === 'hd') || candidates[0];\n        if (file) { urls.push(file.link); sources.push('pexels'); }\n        if (urls.length >= 4) break;\n      }\n    }\n  } catch (e) { /* fall through to Pixabay */ }\n}\nif (urls.length < 2 && cfg.pixabayKey) {\n  try {\n    const r = await getJson({\n      hostname: 'pixabay.com',\n      path: `/api/videos/?key=${cfg.pixabayKey}&q=${encodeURIComponent(terms)}&video_type=film&safesearch=true&per_page=10`\n    });\n    if (r.status === 200 && r.body && r.body.hits) {\n      for (const hit of r.body.hits) {\n        const v = hit.videos || {};\n        const variants = ['large','medium','small','tiny'].map(k => v[k]).filter(Boolean);\n        const portrait = variants.find(x => (x.height || 0) >= (x.width || 0));\n        const pick = portrait || variants[0];\n        if (pick && pick.url) { urls.push(pick.url); sources.push('pixabay'); }\n        if (urls.length >= 4) break;\n      }\n    }\n  } catch (e) { /* swallow — fallback to placeholder downstream */ }\n}\n// If no stock source produced clips, return empty array; Download node will create a placeholder.\nreturn [{ json: { clipUrls: urls.slice(0, 4), sources: sources.slice(0, 4), terms, fallback: urls.length === 0 } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000022",
+      "name": "Resolve Clip URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [180, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst https = require('https');\nconst http = require('http');\nconst { execSync } = require('child_process');\nconst cfg = $('Set Config').first().json;\nconst urls = $input.first().json.clipUrls || [];\nconst download = (url, dest, depth = 0) => new Promise((resolve, reject) => {\n  if (depth > 5) return reject(new Error('Too many redirects'));\n  const lib = url.startsWith('https') ? https : http;\n  const file = fs.createWriteStream(dest);\n  lib.get(url, (res) => {\n    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {\n      file.close(); fs.unlink(dest, () => {});\n      return download(res.headers.location, dest, depth + 1).then(resolve, reject);\n    }\n    if (res.statusCode >= 400) {\n      file.close(); fs.unlink(dest, () => {});\n      return reject(new Error('HTTP ' + res.statusCode + ' for ' + url));\n    }\n    res.pipe(file);\n    file.on('finish', () => file.close(resolve));\n  }).on('error', (err) => { fs.unlink(dest, () => reject(err)); });\n});\nconst saved = [];\nfor (let i = 0; i < urls.length; i++) {\n  try {\n    const out = path.join(cfg.workspace, 'clips', `clip_${String(i).padStart(2,'0')}.mp4`);\n    await download(urls[i], out);\n    saved.push(out);\n  } catch (e) { /* skip bad URL, continue */ }\n}\nif (!saved.length) {\n  // Fallback: synthesize a colored background clip with ffmpeg\n  const dur = parseFloat($('Get Audio Duration').first().json.duration) || 30;\n  const placeholder = path.join(cfg.workspace, 'clips', 'clip_00.mp4');\n  const palette = ['0x1a1a2e','0x16213e','0x0f3460','0x533483','0x2d2d44'];\n  const color = palette[Math.floor(Math.random()*palette.length)];\n  execSync(`ffmpeg -y -f lavfi -i \"color=c=${color}:s=1080x1920:d=${dur}\" -c:v libx264 -preset veryfast -pix_fmt yuv420p \"${placeholder}\"`, { shell: '/bin/bash', maxBuffer: 50*1024*1024 });\n  saved.push(placeholder);\n}\nreturn [{ json: { clipPaths: saved, count: saved.length, fallback: !urls.length } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-00000000000b",
+      "name": "Download & Save Clips",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [620, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst cfg = $('Set Config').first().json;\nconst lines = $('Parse Script').first().json.lines;\nconst durRaw = $('Get Audio Duration').first().json.stdout || $('Get Audio Duration').first().json;\nconst total = parseFloat(typeof durRaw === 'string' ? durRaw : durRaw.stdout) || 30;\nconst per = total / lines.length;\nconst pad = (n) => String(Math.floor(n)).padStart(2, '0');\nconst fmt = (t) => {\n  const h = Math.floor(t / 3600);\n  const m = Math.floor((t % 3600) / 60);\n  const s = Math.floor(t % 60);\n  const ms = Math.floor((t - Math.floor(t)) * 1000);\n  return `${pad(h)}:${pad(m)}:${pad(s)},${String(ms).padStart(3,'0')}`;\n};\nlet srt = '';\nlines.forEach((line, i) => {\n  const start = i * per;\n  const end = Math.min(total, (i + 1) * per - 0.05);\n  srt += `${i+1}\\n${fmt(start)} --> ${fmt(end)}\\n${line}\\n\\n`;\n});\nconst out = path.join(cfg.workspace, 'subs', 'subs.srt');\nfs.writeFileSync(out, srt);\nreturn [{ json: { srtPath: out, totalDuration: total, lineCount: lines.length } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-00000000000c",
+      "name": "Build SRT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [840, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst { execSync } = require('child_process');\nconst cfg = $('Set Config').first().json;\nconst w = cfg.workspace;\nconst bgm = cfg.bgmPath;\nconst hasBgm = bgm && fs.existsSync(bgm);\nconst clips = fs.readdirSync(`${w}/clips`).filter(f => f.endsWith('.mp4')).sort();\nif (!clips.length) throw new Error('No clips found in ' + w + '/clips');\nfs.writeFileSync(`${w}/concat.txt`, clips.map(f => `file 'clips/${f}'`).join('\\n'));\n// Try to detect libass support (subtitles filter)\nlet hasSubFilter = false;\ntry {\n  const filters = execSync('ffmpeg -hide_banner -filters 2>&1 | grep -E \"^ [TS\\\\.]+ subtitles\" || true', { shell: '/bin/bash' }).toString();\n  hasSubFilter = filters.includes('subtitles');\n} catch (e) {}\nconst subPart = hasSubFilter ? \",subtitles=subs/subs.srt:force_style='FontName=Arial,FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Shadow=1,Alignment=2,MarginV=120'\" : '';\nconst baseFilter = `[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${subPart}`;\nlet cmd;\nif (hasBgm) {\n  const filter = baseFilter + \"[v];[1:a]volume=1.0[v1];[2:a]volume=0.12,aloop=loop=-1:size=2e9[v2];[v1][v2]amix=inputs=2:duration=first:dropout_transition=0[a]\";\n  cmd = `cd \"${w}\" && ffmpeg -y -f concat -safe 0 -i concat.txt -i audio/voice.mp3 -i \"${bgm}\" -filter_complex \"${filter}\" -map \"[v]\" -map \"[a]\" -shortest -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -b:a 128k output/final.mp4`;\n} else {\n  const filter = baseFilter + \"[v]\";\n  cmd = `cd \"${w}\" && ffmpeg -y -f concat -safe 0 -i concat.txt -i audio/voice.mp3 -filter_complex \"${filter}\" -map \"[v]\" -map 1:a -shortest -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -b:a 128k output/final.mp4`;\n}\nexecSync(cmd, { shell: '/bin/bash', maxBuffer: 200 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });\nconst finalPath = `${w}/output/final.mp4`;\nconst stat = fs.statSync(finalPath);\nreturn [{ json: { finalPath, sizeBytes: stat.size, hasBgm, hasSubtitles: hasSubFilter, clipCount: clips.length } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-00000000000d",
+      "name": "Render Video (FFmpeg)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1060, -100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $('Set Config').first().json.openaiModel, response_format: { type: 'json_object' }, messages: [ { role: 'system', content: 'You write high-CTR YouTube Shorts metadata for Indian comedy. Output strict JSON only.' }, { role: 'user', content: 'Idea: ' + ($('Parse Script').first().json.idea || '') + '\\nScript: ' + ($('Parse Script').first().json.fullScript || '') + '\\nReturn JSON with: title (<=70 chars, viral, curiosity hook, can include 1-2 emojis), description (3-5 lines, SEO keywords, ends with hashtags), tags (array of 15-25 lowercase keyword strings, no hash signs).' } ] }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-00000000000e",
+      "name": "Generate SEO Metadata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1280, -100],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "openAiApi": {
+          "id": "Lkl9iNa1LJMElecR",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const raw = $input.first().json;\nconst content = raw.choices?.[0]?.message?.content || '{}';\nlet meta;\ntry { meta = JSON.parse(content); } catch (e) {\n  meta = { title: 'Funny Indian Short', description: 'Daily desi comedy short.', tags: ['shorts','comedy','indian','funny'] };\n}\nconst tags = Array.isArray(meta.tags) ? meta.tags.map(t => String(t).replace(/^#/, '').trim()).filter(Boolean) : [];\nreturn [{ json: { title: (meta.title || 'Funny Indian Short').slice(0, 95), description: meta.description || '', tags } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-00000000000f",
+      "name": "Parse SEO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, -100]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const fs = require('fs');\nconst cfg = $('Set Config').first().json;\nconst title = ($('Parse SEO').first().json.title || 'untitled');\nconst safe = title.replace(/[^A-Za-z0-9_\\- ]/g, '').trim().replace(/\\s+/g, '_').slice(0, 80) || 'untitled';\nconst dest = `${cfg.libraryDir}/${cfg.runId}-${safe}.mp4`;\nfs.mkdirSync(cfg.libraryDir, { recursive: true });\nfs.copyFileSync(`${cfg.workspace}/output/final.mp4`, dest);\nreturn [{ json: { libraryPath: dest, stdout: dest } }];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000023",
+      "name": "Save to Library",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, -100]
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $('Set Config').first().json.workspace }}/output/final.mp4",
+        "options": {
+          "dataPropertyName": "data"
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000010",
+      "name": "Read Final Video",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [1940, -100],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Parse SEO').first().json.title }}",
+        "regionCode": "IN",
+        "categoryId": "23",
+        "binaryProperty": "data",
+        "options": {
+          "description": "={{ $('Parse SEO').first().json.description }}",
+          "tags": "={{ ($('Parse SEO').first().json.tags || []).join(',') }}",
+          "privacyStatus": "={{ $('Set Config').first().json.youtubePrivacy }}",
+          "madeForKids": false,
+          "notifySubscribers": true
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000011",
+      "name": "Upload to YouTube",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [2160, -100],
+      "disabled": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "REPLACE_WITH_YOUTUBE_OAUTH_CRED_ID",
+          "name": "YouTube OAuth2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Resolve Input", "type": "main", "index": 0 }]]
+    },
+    "Schedule Trigger (10:00 IST daily)": {
+      "main": [[{ "node": "Resolve Input", "type": "main", "index": 0 }]]
+    },
+    "Webhook Trigger (POST topic)": {
+      "main": [[{ "node": "Resolve Input", "type": "main", "index": 0 }]]
+    },
+    "Form Trigger (Topic + Content)": {
+      "main": [[{ "node": "Resolve Input", "type": "main", "index": 0 }]]
+    },
+    "Resolve Input": {
+      "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]]
+    },
+    "Set Config": {
+      "main": [[{ "node": "Init Workspace", "type": "main", "index": 0 }]]
+    },
+    "Init Workspace": {
+      "main": [[{ "node": "Generate Idea + Script", "type": "main", "index": 0 }]]
+    },
+    "Generate Idea + Script": {
+      "main": [[{ "node": "Parse Script", "type": "main", "index": 0 }]]
+    },
+    "Parse Script": {
+      "main": [[{ "node": "Generate Voice (TTS)", "type": "main", "index": 0 }]]
+    },
+    "Generate Voice (TTS)": {
+      "main": [[{ "node": "Get Audio Duration", "type": "main", "index": 0 }]]
+    },
+    "Get Audio Duration": {
+      "main": [[{ "node": "Resolve Clip URLs", "type": "main", "index": 0 }]]
+    },
+    "Resolve Clip URLs": {
+      "main": [[{ "node": "Download & Save Clips", "type": "main", "index": 0 }]]
+    },
+    "Download & Save Clips": {
+      "main": [[{ "node": "Build SRT", "type": "main", "index": 0 }]]
+    },
+    "Build SRT": {
+      "main": [[{ "node": "Render Video (FFmpeg)", "type": "main", "index": 0 }]]
+    },
+    "Render Video (FFmpeg)": {
+      "main": [[{ "node": "Generate SEO Metadata", "type": "main", "index": 0 }]]
+    },
+    "Generate SEO Metadata": {
+      "main": [[{ "node": "Parse SEO", "type": "main", "index": 0 }]]
+    },
+    "Parse SEO": {
+      "main": [[{ "node": "Save to Library", "type": "main", "index": 0 }]]
+    },
+    "Save to Library": {
+      "main": [[{ "node": "Read Final Video", "type": "main", "index": 0 }]]
+    },
+    "Read Final Video": {
+      "main": [[{ "node": "Upload to YouTube", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "tags": [
+    { "name": "auto-shorts" },
+    { "name": "youtube" }
+  ],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
